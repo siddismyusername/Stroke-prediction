@@ -3,14 +3,11 @@ import pandas as pd
 import pickle
 
 # --- Load Saved Objects ---
-# It's crucial that these 'model.pkl' and 'scaler.pkl' are the ones saved
-# from your model training notebook.
 try:
     model = pickle.load(open('model.pkl', 'rb'))
-    encoder = pickle.load(open('encoder.pkl', 'rb'))
     scaler = pickle.load(open('scaler.pkl', 'rb'))
 except FileNotFoundError:
-    st.error("Model or scaler file not found. Please ensure 'stroke_prediction_model.pkl' and 'scaler.pkl' are in the same directory.")
+    st.error("Model or scaler file not found. Please ensure 'model.pkl' and 'scaler.pkl' are in the same directory.")
     st.stop()
 
 # --- Page Configuration ---
@@ -43,49 +40,43 @@ with col2:
 
 # --- Prediction Logic ---
 if st.button("🩺 Predict Stroke Risk"):
-    # 1. Collect and map inputs
-    # The mappings must match the encoding done during training
+    # Encoding maps
     hypertension_map = {'Yes': 1, 'No': 0}
     heart_disease_map = {'Yes': 1, 'No': 0}
-    
+    ever_married_map = {'Yes': 1, 'No': 0}
+    residence_type_map = {'Urban': 1, 'Rural': 0}
+    smoking_status_map = {'formerly smoked': 1, 'smokes': 1, 'never smoked': 0, 'Unknown': 0}
+    work_type_map = {'Never_worked': 0, 'children': 0, 'Govt_job': 1, 'Private': 2, 'Self-employed': 3}
+    gender_map = {'Male': 1, 'Female': 0}
 
-    # Create a dictionary of the inputs
+    # Input data dictionary with mapped values
     input_data = {
-        'gender': gender,
+        'gender': gender_map[gender],
         'age': age,
         'hypertension': hypertension_map[hypertension],
         'heart_disease': heart_disease_map[heart_disease],
-        'ever_married': ever_married,
-        'work_type': work_type,
-        'Residence_type': residence_type,
+        'ever_married': ever_married_map[ever_married],
+        'work_type': work_type_map[work_type],
+        'Residence_type': residence_type_map[residence_type],
         'avg_glucose_level': glucose_level,
         'bmi': bmi,
-        'smoking_status': smoking_status
+        'smoking_status': smoking_status_map[smoking_status]
     }
 
-    # 2. Create a DataFrame in the correct order
+    # Convert to DataFrame
     df = pd.DataFrame([input_data])
-    
-    # OHE Encoding
-    ohe_features = ['gender','ever_married','work_type','Residence_type','smoking_status']
-    encoded=encoder.transform(df[ohe_features]).toarray()
-    encoder_df=pd.DataFrame(encoded,columns=encoder.get_feature_names_out(),index=df.index)
-    df = pd.concat([df,encoder_df],axis=1)
-    df.drop(ohe_features, axis=1, inplace=True)
 
-    # 3. Scale the features
-    
+    # Scale the features
     df_scaled = scaler.transform(df)
-    # Note: Ensure that the scaler was fitted on the training data during model training
 
-    # 4. Make a prediction
+    # Make prediction
     prediction = model.predict(df_scaled)
     prediction_proba = model.predict_proba(df_scaled)
 
     # --- Display Results ---
     st.markdown("---")
     st.subheader("Prediction Result:")
-    
+
     if prediction[0] == 1:
         st.error(f"⚠️ High Risk of Stroke ({prediction_proba[0][1]:.0%} probability)")
         st.warning("This result is a prediction and not a medical diagnosis. Please consult a healthcare professional for advice.")
